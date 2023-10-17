@@ -1,0 +1,12 @@
+("Move",2,0,18) # Black at A19 (0,18)
+("Move",1,0,0) # White at A1 (0,0)
+("Move",1,0,1) # White at A2 (0,1)
+("Move",2,0,17) # Black at A18 (0,17)
+("Move",2,0,16) # Black at A17 (0,16)
+("Move",1,0,2) # White at A3 (0,2)
+("Move",1,0,3) # White at A4 (0,3)
+("Move",2,0,15) # Black at A16 (0,15)
+("Move",2,0,14) # Black at A15 (0,14)
+("Move",1,0,4) # White at A5 (0,4)
+("Move",1,0,5) # White at A6 (0,5)
+("Res", 1) # White won

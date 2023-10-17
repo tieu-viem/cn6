@@ -1,0 +1,12 @@
+("Move",2,0,0) # Black at A1 (0,0)
+("Move",1,1,0) # White at B1 (1,0)
+("Move",1,1,1) # White at B2 (1,1)
+("Move",2,0,1) # Black at A2 (0,1)
+("Move",2,0,2) # Black at A3 (0,2)
+("Move",1,1,2) # White at B3 (1,2)
+("Move",1,1,3) # White at B4 (1,3)
+("Move",2,0,3) # Black at A4 (0,3)
+("Move",2,0,4) # Black at A5 (0,4)
+("Move",1,1,4) # White at B5 (1,4)
+("Move",1,1,5) # White at B6 (1,5)
+("Res", 1) # White won
