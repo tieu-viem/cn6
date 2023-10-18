@@ -259,7 +259,7 @@ class Connect6Game:
         self.double_move = False  # Bắt đầu với lượt đánh một quân
         self.default_board_size = DEFAULT_BOARD_SIZE
         self.board_size = self.default_board_size
-        self.cell_size = 30
+        self.cell_size = 35
         self.board = [[0 for _ in range(self.board_size)] for _ in range(self.board_size)]
         self.first_move = True
         self.current_player = 2  # Thay đổi từ 1 (quân đen) thành 2 (quân đỏ)
@@ -283,6 +283,59 @@ class Connect6Game:
 
         self.setup_menu()
         self.setup_game_mode_selection()
+        
+        self.move_history = []
+        self.undo_history = []
+    def record_move(self, x, y, move_number=None):
+        current_player_color = "black" if self.current_player == 1 else "red"
+        if move_number is not None:
+            self.moves_history[current_player_color].append((x, y, move_number))
+        else:
+            # Tìm số thứ tự tiếp theo cho nước đi
+            last_move = self.moves_history[current_player_color][-1] if self.moves_history[current_player_color] else None
+            if last_move:
+                last_move_number = last_move[2]
+                new_move_number = last_move_number + 1
+            else:
+                new_move_number = 1
+
+            self.moves_history[current_player_color].append((x, y, new_move_number))
+            # Cập nhật nước đi vào move_history
+            self.move_history.append((x, y, self.current_player))
+
+    def undo_move(self):
+        if len(self.move_history) > 0:
+            last_move = self.move_history.pop()
+            self.undo_history.append(last_move)
+            x, y, player = last_move
+            self.board[y][x] = 0
+            self.current_player = 3 - player
+            self.remaining_moves += 1  # Tăng số nước đi còn lại lên 1
+            self.record_move(x, y)  # Gọi record_move để cập nhật lịch sử nước đi
+            self.draw_move(self.draw, x, y, "gray")  # Cập nhật trạng thái giao diện bàn cờ
+
+
+
+    def redo_move(self):
+        if len(self.undo_history) > 0:
+            last_undone_move = self.undo_history.pop()
+            self.move_history.append(last_undone_move)
+            x, y, player = last_undone_move
+            self.board[y][x] = player
+            self.current_player = 3 - player
+
+            self.remaining_moves -= 1
+            self.record_move(x, y)  # Gọi record_move để cập nhật lịch sử nước đi
+            color = "black" if player == 1 else "red"
+            self.draw_move(self.draw, x, y, color)  # Cập nhật trạng thái giao diện bàn cờ
+
+
+
+
+            
+        
+
+
 
     def setup_menu(self):
         menubar = tk.Menu(self.root)
@@ -291,16 +344,18 @@ class Connect6Game:
         file_menu = tk.Menu(menubar, tearoff=0)
         menubar.add_cascade(label="MENU GAME", menu=file_menu)
         file_menu.add_command(label="Save Moves", command=self.save_game_state)
-
         file_menu.add_separator()
-        
         file_menu.add_command(label="2 player", command=self.start_two_players_game)
         file_menu.add_command(label="vs bot", command=self.start_with_bot_game)
         file_menu.add_command(label="restart game", command=self.restart_game)
         file_menu.add_command(label="exit game", command=self.exit_game)
-        file_menu.add_command(label="selection_color", command=self.start_with_bot_game)
-        # Khi người dùng nhấn vào tùy chọn "Open Game" trong menu
+        file_menu.add_command(label="change_board_size", command=self.change_board_size)
         file_menu.add_command(label="Open Game", command=self.open_game_state)
+
+        # Thêm Undo và Redo vào menu
+        menubar.add_command(label="Undo", command=self.undo_move)
+        menubar.add_command(label="Redo", command=self.redo_move)
+
     def setup_game_mode_selection(self):
         selection_window = tk.Toplevel(self.root) 
         selection_window.title("BOARD GAME CONNECT 6")
@@ -453,11 +508,43 @@ class Connect6Game:
 
 
 
+   
+        
     def change_board_size(self):
         new_size = simpledialog.askinteger("Thay đổi kích thước", "Nhập kích thước mới (ví dụ: 19):", initialvalue=self.board_size)
+        
         if new_size and new_size >= 6:
+            # Lưu lại trạng thái trò chơi hiện tại (nếu cần)
+            current_board_state = self.get_current_board_state()
+            
+            # Cập nhật kích thước bàn cờ
             self.board_size = new_size
+            
+            # Tạo lại bàn cờ với kích thước mới
+            self.board = [[0 for _ in range(self.board_size)] for _ in range(self.board_size)]
+            
+            # Thiết lập trò chơi mới với kích thước bàn cờ mới
             self.setup_new_game()
+            
+            # Khôi phục trạng thái trò chơi trước đó (nếu có)
+            if current_board_state:
+                self.restore_board_state(current_board_state)
+
+
+
+
+
+    def get_current_board_state(self):
+        # Thu thập trạng thái trò chơi hiện tại và lưu trữ nó trong một biến
+        current_state = {"board": self.board, "current_player": self.current_player, "remaining_moves": self.remaining_moves}
+        return current_state
+
+    def restore_board_state(self, board_state):
+        # Khôi phục trạng thái trò chơi từ dữ liệu trạng thái trước đó
+        self.board = board_state["board"]
+        self.current_player = board_state["current_player"]
+        self.remaining_moves = board_state["remaining_moves"]
+        self.draw_board()  # Vẽ lại bàn cờ
 
     def create_board_image(self):
         board_image = Image.new("RGB", (self.board_size * self.cell_size, self.board_size * self.cell_size), "white")
@@ -485,56 +572,47 @@ class Connect6Game:
         if self.bot_enabled:
             self.start_bot_thread()
 
-    def evaluate_board(self, board, player):
-        opponent = 3 - player
-        player_score = 0
-        opponent_score = 0
-
-        for y in range(self.board_size):
-            for x in range(self.board_size):
-                if board[y][x] == player:
-                    player_score += self.evaluate_position(x, y, player)
-                elif board[y][x] == opponent:
-                    opponent_score += self.evaluate_position(x, y, opponent)
-
-        return player_score - opponent_score
+    
 
     def on_cell_click(self, x, y):
-        if not self.bot_move_in_progress: #bot thực hiện người chơi không thực hiện 
-            if 0 <= x < self.board_size and 0 <= y < self.board_size and self.remaining_moves > 0: #Hàm kiểm tra xem người chơi đã nhấp chuột vào một ô hợp lệ trên bàn cờ
-                if self.board[y][x] == 0: #Nếu các điều kiện trên đều đúng, hàm tiếp tục kiểm tra ô đã được đánh (có giá trị self.board[y][x]) hoặc chưa.
-                    self.board[y][x] = self.current_player #Nếu ô chưa được đánh (giá trị self.board[y][x] == 0), hàm thực hiện các bước sau: người chơi hiện tại đã đánh vào ô đó.
-                    self.draw_board() #cập nhật trạng thái hiện tại của bàn cờ và hiển thị nước đi mới.
-                    self.record_move(x, y, self.move_counter)  # Truyền số nước đi vào hàm
+        if not self.bot_move_in_progress:  # Chỉ khi bot không thực hiện nước đi, người chơi mới có thể thực hiện nước đi
+            if 0 <= x < self.board_size and 0 <= y < self.board_size and self.remaining_moves > 0:
+                # Kiểm tra xem người chơi đã nhấp chuột vào một ô hợp lệ trên bàn cờ
+                if self.board[y][x] == 0:
+                    # Nếu ô chưa được đánh (có giá trị self.board[y][x] == 0), thực hiện các bước sau:
+                    self.board[y][x] = self.current_player  # Người chơi hiện tại đã đánh vào ô đó
+                    self.draw_board()  # Cập nhật trạng thái hiện tại của bàn cờ và hiển thị nước đi mới
+                    self.record_move(x, y, self.move_counter)  # Ghi lại nước đi và truyền số nước đi vào hàm
                     self.move_counter += 1  # Tăng số nước đi lên một đơn vị
 
-
                     if self.check_win(self.board, x, y, self.current_player):
-                             # kiểm tra xem người chơi đã chiến thắng hay chưa bằng cách gọi hàm
+                        # Kiểm tra xem người chơi đã chiến thắng hay chưa bằng cách gọi hàm
                         winner = "Đen" if self.current_player == 1 else "Đỏ"
                         messagebox.showinfo("Kết thúc trò chơi", f"{winner} chiến thắng!")
-                        self.save_moves_to_image() 
-                    else: #Nếu người chơi chưa chiến thắng, hàm giảm số lượng nước đi còn lại 
-                        self.remaining_moves -= 1 
-                        if self.remaining_moves == 0: #Nếu self.remaining_moves = 0 người chơi đã đánh xong 1 lượt, nên chuyển lượt cho người chơi khác và thiết lập self.remaining_moves là 2 để cho lượt mới. 
-                            self.current_player = 3 - self.current_player #Chuyển lượt cho người chơi khác
+                        self.save_game_state()
+                    else:
+                        # Nếu người chơi chưa chiến thắng, giảm số lượng nước đi còn lại
+                        self.remaining_moves -= 1
+                        if self.remaining_moves == 0:
+                            # Nếu self.remaining_moves = 0, người chơi đã hoàn thành lượt hiện tại, chuyển lượt cho người chơi khác
+                            self.current_player = 3 - self.current_player
+                            self.remaining_moves = 2  # Để bắt đầu lượt mới với 2 nước đi
+                            if self.bot_enabled and self.current_player == self.bot_player:
+                                self.bot_move_in_progress = True  # Đánh dấu rằng bot đang thực hiện nước đi
+                                self.make_bot_move()  # Gọi hàm để bot thực hiện nước đi
+                else:
+                    if self.board[y][x] == 0:
+                        self.board[y][x] = self.current_player
+                        self.draw_board()
+                        self.record_move(x, y)
+                        self.remaining_moves -= 1
+                        if self.remaining_moves == 0:
+                            self.current_player = 3 - self.current_player
                             self.remaining_moves = 2
                             if self.bot_enabled and self.current_player == self.bot_player:
-                                self.bot_move_in_progress = True #self.bot_move_in_progress thành True và gọi hàm self.make_bot_move() để bot thực hiện nước đi của mình
-                                self.make_bot_move()  # Gọi hàm để bot thực hiện nước đi
-
-                else:
-                    if self.board[y][x] == 0: # kiểm tra xem ô mà người chơi đã nhấp chuột vào có giá trị bằng 0 hay không,
-                        self.board[y][x] = self.current_player #Gán giá trị của ô đó bằng self.current_player người chơi hiện tại đã đánh vào ô đó.
-                        self.draw_board() # cập nhật trạng thái hiện tại của bàn cờ và hiển thị nước đi mới.
-                        self.record_move(x, y)
-                        self.remaining_moves -= 1 #đi 1 đơn vị.
-                        if self.remaining_moves == 0: #Nếu bằng 0 người chơi đã hoàn thành lượt hiện tại
-                            self.current_player = 3 - self.current_player #Chuyển lượt cho người chơi khác
-                            self.remaining_moves = 2  #2 để bắt đầu lượt mới. Người chơi có 2 nước đi trong lượt mới.
-                            if self.bot_enabled and self.current_player == self.bot_player: #Kiểm tra xem chế độ chơi với bot đã được kích hoạt và đến lượt của bot
-                                self.bot_move_in_progress = True 
+                                self.bot_move_in_progress = True
                                 self.make_bot_move()
+
     def check_win(self, board, x, y, player):
         directions = [(1, 0), (0, 1), (1, 1), (-1, -1), (1, -1), (-1, 1)]
 
@@ -579,20 +657,6 @@ class Connect6Game:
 
 
 
-    def record_move(self, x, y, move_number=None):
-        current_player_color = "black" if self.current_player == 1 else "red"
-        if move_number is not None:
-            self.moves_history[current_player_color].append((x, y, move_number))
-        else:
-            # Tìm số thứ tự tiếp theo cho nước đi
-            last_move = self.moves_history[current_player_color][-1] if self.moves_history[current_player_color] else None
-            if last_move:
-                last_move_number = last_move[2]
-                new_move_number = last_move_number + 1
-            else:
-                new_move_number = 1
-
-            self.moves_history[current_player_color].append((x, y, new_move_number))
 
     #nước đi bot
 
@@ -949,29 +1013,31 @@ class Connect6Game:
         self.canvas.delete("all")
         for y in range(self.board_size):
             for x in range(self.board_size):
-                if self.board[y][x] == 1:
-                    color = "black"
-                elif self.board[y][x] == 2:
-                    color = "red"
-                else:
-                    color = "gray"
+                if 0 <= x < self.board_size and 0 <= y < self.board_size:
+                    if self.board[y][x] == 1:
+                        color = "black"
+                    elif self.board[y][x] == 2:
+                        color = "red"
+                    else:
+                        color = "gray"
 
-                move_number = self.get_move_number(x, y)
-                text = str(move_number) if move_number is not None else ""
-                self.canvas.create_oval(
-                    x * self.cell_size,
-                    y * self.cell_size,
-                    (x + 1) * self.cell_size,
-                    (y + 1) * self.cell_size,
-                    fill=color,
-                    outline="black"
-                )
-                self.canvas.create_text(
-                    (x + 0.5) * self.cell_size,
-                    (y + 0.5) * self.cell_size,
-                    text=text,
-                    fill="white" if color == "black" else "black"
-                )
+                    move_number = self.get_move_number(x, y)
+                    text = str(move_number) if move_number is not None else ""
+                    self.canvas.create_oval(
+                        x * self.cell_size,
+                        y * self.cell_size,
+                        (x + 1) * self.cell_size,
+                        (y + 1) * self.cell_size,
+                        fill=color,
+                        outline="black"
+                    )
+                    self.canvas.create_text(
+                        (x + 0.5) * self.cell_size,
+                        (y + 0.5) * self.cell_size,
+                        text=text,
+                        fill="white" if color == "black" else "black"
+                    )
+
     
 
     def get_move_number(self, x, y):
